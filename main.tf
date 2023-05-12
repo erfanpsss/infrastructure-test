@@ -17,7 +17,7 @@ provider "aws" {
 }
 
 locals {
-  app_name = var.infrustructure_name
+  app_name = "${var.infrustructure_name}-${var.environment}}"
 }
 
 data "aws_caller_identity" "current" {}
@@ -42,7 +42,7 @@ module "vpc" {
 }
 
 resource "aws_security_group" "allow_all" {
-  name        = "${var.infrustructure_name}_allow_all"
+  name        = "${var.infrustructure_name}-${var.environment}_allow_all"
   description = "Allow all traffic"
   vpc_id      = module.vpc.vpc_id
 
@@ -69,7 +69,7 @@ resource "aws_ecs_cluster" "this" {
 # ECS task definition and execution role
 
 resource "aws_iam_role" "ecs_execution_role" {
-  name = "${var.infrustructure_name}_ecs_execution_role"
+  name = "${var.infrustructure_name}-${var.environment}_ecs_execution_role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -86,7 +86,7 @@ resource "aws_iam_role" "ecs_execution_role" {
 }
 
 resource "aws_iam_role" "ecs_events" {
-  name = "${var.infrustructure_name}_ecs_events_role"
+  name = "${var.infrustructure_name}-${var.environment}_ecs_events_role"
 
   assume_role_policy = <<EOF
 {
@@ -106,7 +106,7 @@ EOF
 }
 
 resource "aws_iam_role_policy" "ecs_events" {
-  name = "${var.infrustructure_name}_ecs_events_policy"
+  name = "${var.infrustructure_name}-${var.environment}_ecs_events_policy"
   role = aws_iam_role.ecs_events.id
 
   policy = <<EOF
@@ -127,7 +127,7 @@ EOF
 }
 
 resource "aws_security_group" "ecs_tasks_sg" {
-  name        = "${var.infrustructure_name}_ecs_tasks_security_group"
+  name        = "${var.infrustructure_name}-${var.environment}_ecs_tasks_security_group"
   description = "Security group for ECS tasks"
   vpc_id      = module.vpc.vpc_id
 }
@@ -139,7 +139,7 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_role_policy" {
 }
 
 resource "aws_iam_role" "ecs_task_role" {
-  name = "${var.infrustructure_name}_ecs_task_role"
+  name = "${var.infrustructure_name}-${var.environment}_ecs_task_role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -260,7 +260,7 @@ resource "aws_codepipeline" "this" {
         EnvironmentVariables = jsonencode([
           {
             "name" : "INFRUSTRUCTURE_NAME",
-            "value" : "${var.infrustructure_name}",
+            "value" : "${var.infrustructure_name}-${var.environment}",
             "type" : "PLAINTEXT"
           },
           {
@@ -316,20 +316,11 @@ resource "aws_codepipeline" "this" {
 # IAM roles, policies, and S3 bucket
 
 resource "aws_iam_role" "codebuild_role" {
-  name = "${var.infrustructure_name}_codebuild_role"
+  name = "${var.infrustructure_name}-${var.environment}_codebuild_role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-      {
-        "Effect" : "Allow",
-        "Action" : [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents"
-        ],
-        "Resource" : "*"
-      },
       {
         Action = "sts:AssumeRole"
         Effect = "Allow"
@@ -341,13 +332,82 @@ resource "aws_iam_role" "codebuild_role" {
   })
 }
 
+resource "aws_iam_policy" "codebuild_logs" {
+  name        = "${var.infrustructure_name}-${var.environment}_CodeBuildLogs"
+  description = "Allow CodeBuild to create and write to CloudWatch Logs."
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+data "aws_iam_policy_document" "codebuild_s3_permissions" {
+  statement {
+    actions = [
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:ListBucket",
+    ]
+
+    resources = [
+      "${aws_s3_bucket.codepipeline_bucket.arn}",
+      "${aws_s3_bucket.codepipeline_bucket.arn}/*",
+    ]
+  }
+}
+
+resource "aws_iam_policy" "codebuild_s3_policy" {
+  name        = "${var.infrustructure_name}-${var.environment}_codebuild_s3_policy"
+  description = "Allow CodeBuild to access S3 bucket"
+  policy      = data.aws_iam_policy_document.codebuild_s3_permissions.json
+}
+
+resource "aws_iam_role_policy_attachment" "codebuild_s3_policy_attach" {
+  role       = aws_iam_role.codebuild_role.name
+  policy_arn = aws_iam_policy.codebuild_s3_policy.arn
+}
+
+
+resource "aws_iam_role_policy_attachment" "codebuild_logs_attach" {
+  role       = aws_iam_role.codebuild_role.name
+  policy_arn = aws_iam_policy.codebuild_logs.arn
+}
+
+
 resource "aws_iam_role_policy_attachment" "codebuild_role_policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser"
   role       = aws_iam_role.codebuild_role.name
 }
 
+data "aws_iam_policy_document" "codepipeline_s3" {
+  statement {
+    actions   = ["s3:GetObject", "s3:ListBucket", "s3:GetBucketVersioning"]
+    resources = ["${aws_s3_bucket.codepipeline_bucket.arn}/*", "${aws_s3_bucket.codepipeline_bucket.arn}*", aws_s3_bucket.codepipeline_bucket.arn]
+  }
+}
+
+
+resource "aws_iam_policy" "codepipeline_s3_policy" {
+  name        = "${var.infrustructure_name}-${var.environment}_CodePipelineS3Policy"
+  description = "Allow CodePipeline to access specific S3 bucket."
+  policy      = data.aws_iam_policy_document.codepipeline_s3.json
+}
+
+resource "aws_iam_role_policy_attachment" "codepipeline_s3_attach" {
+  role       = aws_iam_role.codepipeline_role.name
+  policy_arn = aws_iam_policy.codepipeline_s3_policy.arn
+}
+
+
 resource "aws_iam_role" "codepipeline_role" {
-  name = "${var.infrustructure_name}_codepipeline_role"
+  name = "${var.infrustructure_name}-${var.environment}_codepipeline_role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -364,7 +424,7 @@ resource "aws_iam_role" "codepipeline_role" {
 }
 
 resource "aws_iam_role_policy" "codepipeline_policy" {
-  name = "${var.infrustructure_name}_codepipeline_policy"
+  name = "${var.infrustructure_name}-${var.environment}_codepipeline_policy"
   role = aws_iam_role.codepipeline_role.id
 
   policy = jsonencode({
@@ -413,7 +473,7 @@ resource "random_id" "id" {
 }
 
 resource "aws_s3_bucket" "codepipeline_bucket" {
-  bucket        = "codepipeline-${var.infrustructure_name}-${random_id.id.hex}"
+  bucket        = "codepipeline-${var.infrustructure_name}-${var.environment}-${random_id.id.hex}"
   force_destroy = true
 }
 
@@ -421,7 +481,7 @@ resource "aws_s3_bucket" "codepipeline_bucket" {
 # Amazon EventBridge
 
 resource "aws_cloudwatch_event_rule" "daily_schedule" {
-  name                = "${var.infrustructure_name}_daily-schedule"
+  name                = "${var.infrustructure_name}-${var.environment}_daily-schedule"
   schedule_expression = "cron(0 0 * * ? *)"
 }
 
@@ -452,7 +512,7 @@ resource "aws_cloudwatch_event_target" "ecs_target" {
     {
       "containerOverrides": [
         {
-          "name": "${var.infrustructure_name}",
+          "name": "${var.infrustructure_name}-${var.environment}",
           "command": ["python", "app.py"]
         }
       ]

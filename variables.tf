@@ -3,6 +3,11 @@ variable "infrustructure_name" {
   type        = string
 }
 
+variable "environment" {
+  description = "The name of environment"
+  type        = string
+}
+
 variable "aws_region" {
   description = "The region to deploy the resources into"
   type        = string
