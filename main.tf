@@ -17,7 +17,7 @@ provider "aws" {
 }
 
 locals {
-  app_name = "${var.infrustructure_name}${var.environment}}"
+  app_name = "${var.infrustructure_name}${var.environment}"
 }
 
 data "aws_caller_identity" "current" {}
