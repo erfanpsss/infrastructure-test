@@ -7,7 +7,6 @@ phases:
       - aws --version
       - "rm -f .env"
       - "printenv > .env"      
-      - systemctl start docker
       - $(aws ecr get-login --region $AWS_DEFAULT_REGION --no-include-email)
   build:
     commands:
