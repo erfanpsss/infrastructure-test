@@ -167,6 +167,14 @@ resource "aws_ecs_task_definition" "this" {
     name      = local.app_name
     image     = "${aws_ecr_repository.this.repository_url}:latest"
     essential = true
+    log_configuration = {
+      log_driver = "awslogs"
+      options = {
+        "awslogs-group"         = "/ecs/${local.app_name}"
+        "awslogs-region"        = "${var.aws_region}"
+        "awslogs-stream-prefix" = "ecs"
+      }
+    }
   }])
 }
 
