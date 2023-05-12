@@ -1,4 +1,4 @@
-.env
+.git
 .conda
 .venv
 __pycache__
@@ -6,6 +6,5 @@ __pycache__
 .terraform
 *.tfstate
 *.tfstate.backup
-*.tfvars
 .terraform.lock.hcl
 .aws
