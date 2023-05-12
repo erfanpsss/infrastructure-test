@@ -322,15 +322,6 @@ resource "aws_iam_role" "codebuild_role" {
     Version = "2012-10-17"
     Statement = [
       {
-        "Effect" : "Allow",
-        "Action" : [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents"
-        ],
-        "Resource" : "*"
-      },
-      {
         Action = "sts:AssumeRole"
         Effect = "Allow"
         Principal = {
@@ -341,10 +332,79 @@ resource "aws_iam_role" "codebuild_role" {
   })
 }
 
+resource "aws_iam_policy" "codebuild_logs" {
+  name        = "${var.infrustructure_name}_CodeBuildLogs"
+  description = "Allow CodeBuild to create and write to CloudWatch Logs."
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+data "aws_iam_policy_document" "codebuild_s3_permissions" {
+  statement {
+    actions = [
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:ListBucket",
+    ]
+
+    resources = [
+      "${aws_s3_bucket.codepipeline_bucket.arn}",
+      "${aws_s3_bucket.codepipeline_bucket.arn}/*",
+    ]
+  }
+}
+
+resource "aws_iam_policy" "codebuild_s3_policy" {
+  name        = "${var.infrustructure_name}_codebuild_s3_policy"
+  description = "Allow CodeBuild to access S3 bucket"
+  policy      = data.aws_iam_policy_document.codebuild_s3_permissions.json
+}
+
+resource "aws_iam_role_policy_attachment" "codebuild_s3_policy_attach" {
+  role       = aws_iam_role.codebuild_role.name
+  policy_arn = aws_iam_policy.codebuild_s3_policy.arn
+}
+
+
+resource "aws_iam_role_policy_attachment" "codebuild_logs_attach" {
+  role       = aws_iam_role.codebuild_role.name
+  policy_arn = aws_iam_policy.codebuild_logs.arn
+}
+
+
 resource "aws_iam_role_policy_attachment" "codebuild_role_policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser"
   role       = aws_iam_role.codebuild_role.name
 }
+
+data "aws_iam_policy_document" "codepipeline_s3" {
+  statement {
+    actions   = ["s3:GetObject", "s3:ListBucket", "s3:GetBucketVersioning"]
+    resources = ["${aws_s3_bucket.codepipeline_bucket.arn}/*", "${aws_s3_bucket.codepipeline_bucket.arn}*", aws_s3_bucket.codepipeline_bucket.arn]
+  }
+}
+
+
+resource "aws_iam_policy" "codepipeline_s3_policy" {
+  name        = "${var.infrustructure_name}_CodePipelineS3Policy"
+  description = "Allow CodePipeline to access specific S3 bucket."
+  policy      = data.aws_iam_policy_document.codepipeline_s3.json
+}
+
+resource "aws_iam_role_policy_attachment" "codepipeline_s3_attach" {
+  role       = aws_iam_role.codepipeline_role.name
+  policy_arn = aws_iam_policy.codepipeline_s3_policy.arn
+}
+
 
 resource "aws_iam_role" "codepipeline_role" {
   name = "${var.infrustructure_name}_codepipeline_role"
