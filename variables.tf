@@ -1,3 +1,8 @@
+variable "infrustructure_name" {
+  description = "The name of infrustructure"
+  type        = string
+}
+
 variable "aws_region" {
   description = "The region to deploy the resources into"
   type        = string
@@ -26,5 +31,15 @@ variable "github_branch" {
 
 variable "aws_account_id" {
   description = "The AWS account ID"
+  type        = string
+}
+
+variable "aws_access_key" {
+  description = "The AWS access key"
+  type        = string
+}
+
+variable "aws_secret_key" {
+  description = "The AWS secret_key"
   type        = string
 }

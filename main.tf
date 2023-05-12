@@ -1,9 +1,23 @@
+terraform {
+  cloud {
+    organization = "erfanpsss_org"
+
+    workspaces {
+      name = "infrustructure-test"
+    }
+  }
+}
+
+
 provider "aws" {
-  region = var.aws_region
+  region     = var.aws_region
+  access_key = var.aws_access_key
+  secret_key = var.aws_secret_key
+
 }
 
 locals {
-  app_name = "infrustructure_test"
+  app_name = var.infrustructure_name
 }
 
 data "aws_caller_identity" "current" {}
@@ -28,7 +42,7 @@ module "vpc" {
 }
 
 resource "aws_security_group" "allow_all" {
-  name        = "allow_all"
+  name        = "${var.infrustructure_name}_allow_all"
   description = "Allow all traffic"
   vpc_id      = module.vpc.vpc_id
 
@@ -55,7 +69,7 @@ resource "aws_ecs_cluster" "this" {
 # ECS task definition and execution role
 
 resource "aws_iam_role" "ecs_execution_role" {
-  name = "ecs_execution_role"
+  name = "${var.infrustructure_name}_ecs_execution_role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -72,7 +86,7 @@ resource "aws_iam_role" "ecs_execution_role" {
 }
 
 resource "aws_iam_role" "ecs_events" {
-  name = "ecs_events_role"
+  name = "${var.infrustructure_name}_ecs_events_role"
 
   assume_role_policy = <<EOF
 {
@@ -92,7 +106,7 @@ EOF
 }
 
 resource "aws_iam_role_policy" "ecs_events" {
-  name = "ecs_events_policy"
+  name = "${var.infrustructure_name}_ecs_events_policy"
   role = aws_iam_role.ecs_events.id
 
   policy = <<EOF
@@ -113,7 +127,7 @@ EOF
 }
 
 resource "aws_security_group" "ecs_tasks_sg" {
-  name        = "ecs_tasks_security_group"
+  name        = "${var.infrustructure_name}_ecs_tasks_security_group"
   description = "Security group for ECS tasks"
   vpc_id      = module.vpc.vpc_id
 }
@@ -125,7 +139,7 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_role_policy" {
 }
 
 resource "aws_iam_role" "ecs_task_role" {
-  name = "ecs_task_role"
+  name = "${var.infrustructure_name}_ecs_task_role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -223,7 +237,7 @@ resource "aws_codepipeline" "this" {
 
       configuration = {
         ConnectionArn    = aws_codestarconnections_connection.github.arn
-        FullRepositoryId = "${var.github_username}/${var.github_repository}"
+        FullRepositoryId = "${var.github_repository}"
         BranchName       = var.github_branch
       }
     }
@@ -243,6 +257,38 @@ resource "aws_codepipeline" "this" {
 
       configuration = {
         ProjectName = aws_codebuild_project.this.name
+        EnvironmentVariables = jsonencode([
+          {
+            "name" : "INFRUSTRUCTURE_NAME",
+            "value" : "${var.infrustructure_name}",
+            "type" : "PLAINTEXT"
+          },
+          {
+            "name" : "AWS_DEFAULT_REGION",
+            "value" : "${var.aws_region}",
+            "type" : "PLAINTEXT"
+          },
+          {
+            "name" : "REPOSITORY_URI",
+            "value" : "${aws_ecr_repository.this.repository_url}",
+            "type" : "PLAINTEXT"
+          },
+          {
+            "name" : "AWS_ACCOUNT_ID",
+            "value" : "${var.aws_account_id}",
+            "type" : "PLAINTEXT"
+          },
+          {
+            "name" : "AWS_ACCESS_KEY",
+            "value" : "${var.aws_access_key}",
+            "type" : "PLAINTEXT"
+          },
+          {
+            "name" : "AWS_SECRET_KEY",
+            "value" : "${var.aws_secret_key}",
+            "type" : "PLAINTEXT"
+          },
+        ])
       }
     }
   }
@@ -270,11 +316,20 @@ resource "aws_codepipeline" "this" {
 # IAM roles, policies, and S3 bucket
 
 resource "aws_iam_role" "codebuild_role" {
-  name = "codebuild_role"
+  name = "${var.infrustructure_name}_codebuild_role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        "Resource" : "*"
+      },
       {
         Action = "sts:AssumeRole"
         Effect = "Allow"
@@ -292,7 +347,7 @@ resource "aws_iam_role_policy_attachment" "codebuild_role_policy" {
 }
 
 resource "aws_iam_role" "codepipeline_role" {
-  name = "codepipeline_role"
+  name = "${var.infrustructure_name}_codepipeline_role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -309,12 +364,19 @@ resource "aws_iam_role" "codepipeline_role" {
 }
 
 resource "aws_iam_role_policy" "codepipeline_policy" {
-  name = "codepipeline_policy"
+  name = "${var.infrustructure_name}_codepipeline_policy"
   role = aws_iam_role.codepipeline_role.id
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "codestar-connections:UseConnection"
+        ],
+        "Resource" : "*"
+      },
       {
         Action = [
           "codebuild:BatchGetBuilds",
@@ -328,7 +390,7 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
           "ecr:DescribeImages",
           "ecs:DescribeServices",
           "ecs:RegisterTaskDefinition",
-          "ecs:UpdateService"
+          "ecs:UpdateService",
         ]
         Effect   = "Allow"
         Resource = "*"
@@ -351,7 +413,7 @@ resource "random_id" "id" {
 }
 
 resource "aws_s3_bucket" "codepipeline_bucket" {
-  bucket        = "codepipeline-infrustructure-test-${random_id.id.hex}"
+  bucket        = "codepipeline-${var.infrustructure_name}-${random_id.id.hex}"
   force_destroy = true
 }
 
@@ -359,7 +421,7 @@ resource "aws_s3_bucket" "codepipeline_bucket" {
 # Amazon EventBridge
 
 resource "aws_cloudwatch_event_rule" "daily_schedule" {
-  name                = "daily-schedule"
+  name                = "${var.infrustructure_name}_daily-schedule"
   schedule_expression = "cron(0 0 * * ? *)"
 }
 
@@ -390,7 +452,7 @@ resource "aws_cloudwatch_event_target" "ecs_target" {
     {
       "containerOverrides": [
         {
-          "name": "container_name",
+          "name": "${var.infrustructure_name}",
           "command": ["python", "app.py"]
         }
       ]
