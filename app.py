@@ -1,9 +1,19 @@
 import argparse
+import logging
 
+logging.basicConfig(
+    format='[%(levelname)s]: %(asctime)s - %(name)s - %(funcName)s:%(lineno)d - %(message)s',
+    level=logging.INFO,
+    handlers=[
+        logging.FileHandler("debug.log"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--first", help="First")
     parser.add_argument("--second", help="Second")
     args = parser.parse_args()
-    print(f"APP running. {args.first} - {args.second}")
+    logger.info(f"APP running. {args.first} - {args.second}")
