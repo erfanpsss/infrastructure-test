@@ -356,10 +356,10 @@ data "aws_iam_policy_document" "codebuild_s3_permissions" {
       "s3:PutObject",
       "s3:ListBucket",
     ]
-
     resources = [
-      "${aws_s3_bucket.codepipeline_bucket.arn}",
       "${aws_s3_bucket.codepipeline_bucket.arn}/*",
+      "${aws_s3_bucket.codepipeline_bucket.arn}*",
+      "${aws_s3_bucket.codepipeline_bucket.arn}",
     ]
   }
 }
@@ -432,9 +432,25 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        Action   = "ecs:*"
-        Effect   = "Allow",
-        Resource = "*"
+        "Action" = [
+          "iam:PassRole"
+        ],
+        "Effect"   = "Allow",
+        "Resource" = "*"
+      },
+      {
+        "Action" = [
+          "codedeploy:*"
+        ],
+        "Effect"   = "Allow",
+        "Resource" = "*"
+      },
+      {
+        "Action" = [
+          "ecs:*"
+        ],
+        "Effect"   = "Allow",
+        "Resource" = "*"
       },
       {
         "Effect" : "Allow",
@@ -447,16 +463,6 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
         Action = [
           "codebuild:BatchGetBuilds",
           "codebuild:StartBuild"
-        ]
-        Effect   = "Allow"
-        Resource = "*"
-      },
-      {
-        Action = [
-          "ecr:DescribeImages",
-          "ecs:DescribeServices",
-          "ecs:RegisterTaskDefinition",
-          "ecs:UpdateService",
         ]
         Effect   = "Allow"
         Resource = "*"
