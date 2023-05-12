@@ -432,6 +432,11 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
     Version = "2012-10-17"
     Statement = [
       {
+        Action   = "ecs:*"
+        Effect   = "Allow",
+        Resource = "*"
+      },
+      {
         "Effect" : "Allow",
         "Action" : [
           "codestar-connections:UseConnection"
