@@ -1,0 +1,11 @@
+version: "3"
+services:
+  scraper:
+    image: "scraper:latest"
+    container_name: "scraper"
+    tty: false
+    build:
+      context: .
+      dockerfile: "Dockerfile"
+    environment:
+     - PYTHONUNBUFFERED=1

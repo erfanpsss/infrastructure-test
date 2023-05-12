@@ -1,0 +1,11 @@
+.env
+.conda
+.venv
+__pycache__
+*.log
+.terraform
+*.tfstate
+*.tfstate.backup
+*.tfvars
+.terraform.lock.hcl
+.aws

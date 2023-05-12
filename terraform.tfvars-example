@@ -1,0 +1,6 @@
+aws_region         = "us-west-2"
+github_username    = "your_github_username"
+github_repository        = "your_github_repository"
+github_token  = "your_github_token"
+github_branch ="main
+aws_account_id     = "your_aws_account_id"
