@@ -508,7 +508,7 @@ resource "aws_s3_bucket" "codepipeline_bucket" {
 
 resource "aws_cloudwatch_event_rule" "daily_schedule" {
   name                = "${var.infrustructure_name}${var.environment}_daily-schedule"
-  schedule_expression = "cron(2 0 * * ? *)"
+  schedule_expression = "cron(0 0 * * ? *)"
 }
 
 resource "aws_cloudwatch_event_target" "ecs_target" {
