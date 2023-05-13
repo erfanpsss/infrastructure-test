@@ -117,7 +117,9 @@ resource "aws_iam_role_policy" "ecs_events" {
       "Effect": "Allow",
       "Action": [
         "ecs:RunTask",
-        "iam:PassRole"
+        "iam:PassRole",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
       ],
       "Resource": "*"
     }
@@ -170,7 +172,7 @@ resource "aws_ecs_task_definition" "this" {
     log_configuration = {
       log_driver = "awslogs"
       options = {
-        "awslogs-group"         = aws_cloudwatch_log_group.ecs_service.name
+        "awslogs-group"         = aws_cloudwatch_log_group.ecs_service_logs.name
         "awslogs-region"        = "${var.aws_region}"
         "awslogs-stream-prefix" = "ecs"
       }
@@ -357,8 +359,8 @@ resource "aws_iam_policy" "codebuild_logs" {
   })
 }
 
-resource "aws_cloudwatch_log_group" "ecs_service" {
-  name = "${var.infrustructure_name}${var.environment}_ecs_aws_cloudwatch_log_group"
+resource "aws_cloudwatch_log_group" "ecs_service_logs" {
+  name = "/ecs/${var.infrustructure_name}${var.environment}_ecs_aws_cloudwatch_log_group"
 }
 
 data "aws_iam_policy_document" "codebuild_s3_permissions" {
