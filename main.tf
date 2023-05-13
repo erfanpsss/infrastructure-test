@@ -219,9 +219,9 @@ resource "aws_ecs_task_definition" "this" {
   container_definitions = jsonencode([{
     name      = local.app_name
     image     = "${aws_ecr_repository.this.repository_url}:latest"
-    essential = false
-    log_configuration = {
-      log_driver = "awslogs"
+    essential = true
+    logConfiguration = {
+      logDriver = "awslogs"
       options = {
         "awslogs-group"         = "${aws_cloudwatch_log_group.ecs_service_logs.name}"
         "awslogs-region"        = "${var.aws_region}"
