@@ -105,6 +105,28 @@ resource "aws_iam_role" "ecs_events" {
 EOF
 }
 
+resource "aws_iam_role_policy" "ecs_task_execution_role_policy" {
+  name = "${var.infrustructure_name}${var.environment}_ecs_task_execution_role_policy"
+  role = aws_iam_role.ecs_execution_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ],
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+
 resource "aws_iam_role_policy" "ecs_events" {
   name = "${var.infrustructure_name}${var.environment}_ecs_events_policy"
   role = aws_iam_role.ecs_events.id
@@ -514,8 +536,10 @@ resource "aws_s3_bucket" "codepipeline_bucket" {
 # Amazon EventBridge
 
 resource "aws_cloudwatch_event_rule" "daily_schedule" {
-  name                = "${var.infrustructure_name}${var.environment}_daily-schedule"
-  schedule_expression = "cron(0 0 * * ? *)"
+  name = "${var.infrustructure_name}${var.environment}_daily-schedule"
+  #schedule_expression = "cron(0 0 * * ? *)"
+  schedule_expression = "rate(2 minutes)"
+
 }
 
 resource "aws_cloudwatch_event_target" "ecs_target" {
