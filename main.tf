@@ -561,10 +561,8 @@ resource "aws_s3_bucket" "codepipeline_bucket" {
 # Amazon EventBridge
 
 resource "aws_cloudwatch_event_rule" "daily_schedule" {
-  name = "${var.infrustructure_name}${var.environment}_daily-schedule"
-  #schedule_expression = "cron(0 0 * * ? *)"
-  schedule_expression = "rate(2 minutes)"
-
+  name                = "${var.infrustructure_name}${var.environment}_daily-schedule"
+  schedule_expression = "cron(0 0 * * ? *)"
 }
 
 resource "aws_cloudwatch_event_target" "ecs_target" {
@@ -595,7 +593,7 @@ resource "aws_cloudwatch_event_target" "ecs_target" {
       "containerOverrides": [
         {
           "name": "${var.infrustructure_name}${var.environment}",
-          "command": ["python", "app.py"]
+          "command": []
         }
       ]
     }
