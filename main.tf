@@ -168,6 +168,27 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_role_policy" {
   role       = aws_iam_role.ecs_execution_role.name
 }
 
+resource "aws_iam_policy" "ecs_logs" {
+  name        = "${var.infrustructure_name}${var.environment}_EcsLogs"
+  description = "Allow ECS to create and write to CloudWatch Logs."
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_logs_attach" {
+  role       = aws_iam_role.ecs_execution_role.name
+  policy_arn = aws_iam_policy.ecs_logs.arn
+}
+
 resource "aws_iam_role" "ecs_task_role" {
   name = "${var.infrustructure_name}${var.environment}_ecs_task_role"
 
@@ -184,6 +205,8 @@ resource "aws_iam_role" "ecs_task_role" {
     ]
   })
 }
+
+
 
 resource "aws_ecs_task_definition" "this" {
   family                   = local.app_name
@@ -387,6 +410,8 @@ resource "aws_iam_policy" "codebuild_logs" {
     ]
   })
 }
+
+
 
 resource "aws_cloudwatch_log_group" "ecs_service_logs" {
   name = "/ecs/${var.infrustructure_name}${var.environment}_ecs_aws_cloudwatch_log_group"
