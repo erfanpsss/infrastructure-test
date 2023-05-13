@@ -186,7 +186,7 @@ resource "aws_ecs_service" "this" {
   name            = local.app_name
   cluster         = aws_ecs_cluster.this.id
   task_definition = aws_ecs_task_definition.this.arn
-  desired_count   = 1
+  desired_count   = 0
   launch_type     = "FARGATE"
 
   network_configuration {
@@ -508,7 +508,7 @@ resource "aws_s3_bucket" "codepipeline_bucket" {
 
 resource "aws_cloudwatch_event_rule" "daily_schedule" {
   name                = "${var.infrustructure_name}${var.environment}_daily-schedule"
-  schedule_expression = "cron(0 0 * * ? *)"
+  schedule_expression = "cron(2 0 * * ? *)"
 }
 
 resource "aws_cloudwatch_event_target" "ecs_target" {
