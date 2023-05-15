@@ -8,7 +8,7 @@ terraform {
   }
 }
 
-
+# Defingin The provier
 provider "aws" {
   region     = var.aws_region
   access_key = var.aws_access_key
@@ -16,6 +16,13 @@ provider "aws" {
 
 }
 
+# Random plugin
+resource "random_id" "id" {
+  byte_length = 4
+}
+
+
+# Defining variables
 locals {
   app_name = "${var.infrustructure_name}${var.environment}"
 }
@@ -25,7 +32,6 @@ data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
 # VPC and Subnets
-
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "3.11.0"
@@ -41,6 +47,7 @@ module "vpc" {
   single_nat_gateway = true
 }
 
+# Scurity groups
 resource "aws_security_group" "allow_all" {
   name        = "${var.infrustructure_name}${var.environment}_allow_all"
   description = "Allow all traffic"
@@ -54,37 +61,32 @@ resource "aws_security_group" "allow_all" {
   }
 }
 
-# ECR repository
+resource "aws_security_group" "ecs_tasks_sg" {
+  name        = "${var.infrustructure_name}${var.environment}_ecs_tasks_security_group"
+  description = "Security group for ECS tasks"
+  vpc_id      = module.vpc.vpc_id
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
 
+# ECR repository
 resource "aws_ecr_repository" "this" {
   name = local.app_name
 }
 
 # ECS cluster
-
 resource "aws_ecs_cluster" "this" {
   name = local.app_name
 }
 
-# ECS task definition and execution role
 
-resource "aws_iam_role" "ecs_execution_role" {
-  name = "${var.infrustructure_name}${var.environment}_ecs_execution_role"
+# IAM roles
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "ecs-tasks.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
-
+# ECS event IAM role
 resource "aws_iam_role" "ecs_events" {
   name = "${var.infrustructure_name}${var.environment}_ecs_events_role"
 
@@ -105,6 +107,83 @@ resource "aws_iam_role" "ecs_events" {
 EOF
 }
 
+# ECS task IAM role
+resource "aws_iam_role" "ecs_task_role" {
+  name = "${var.infrustructure_name}${var.environment}_ecs_task_role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ecs-tasks.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+# ECS task execution IAM role
+resource "aws_iam_role" "ecs_execution_role" {
+  name = "${var.infrustructure_name}${var.environment}_ecs_execution_role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ecs-tasks.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+# CodeBuild IAM role
+resource "aws_iam_role" "codebuild_role" {
+  name = "${var.infrustructure_name}${var.environment}_codebuild_role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "codebuild.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+# CodePipeline IAM role
+resource "aws_iam_role" "codepipeline_role" {
+  name = "${var.infrustructure_name}${var.environment}_codepipeline_role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "codepipeline.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+
+
+# IAM Role Policies
+
+# ECS task execution IAM Role policy
 resource "aws_iam_role_policy" "ecs_task_execution_role_policy" {
   name = "${var.infrustructure_name}${var.environment}_ecs_task_execution_role_policy"
   role = aws_iam_role.ecs_execution_role.id
@@ -126,7 +205,7 @@ resource "aws_iam_role_policy" "ecs_task_execution_role_policy" {
   })
 }
 
-
+# ECS event IAM Role policy
 resource "aws_iam_role_policy" "ecs_events" {
   name = "${var.infrustructure_name}${var.environment}_ecs_events_policy"
   role = aws_iam_role.ecs_events.id
@@ -150,24 +229,69 @@ resource "aws_iam_role_policy" "ecs_events" {
 EOF
 }
 
-resource "aws_security_group" "ecs_tasks_sg" {
-  name        = "${var.infrustructure_name}${var.environment}_ecs_tasks_security_group"
-  description = "Security group for ECS tasks"
-  vpc_id      = module.vpc.vpc_id
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+# CodePipeline IAM Role policy
+resource "aws_iam_role_policy" "codepipeline_policy" {
+  name = "${var.infrustructure_name}${var.environment}_codepipeline_policy"
+  role = aws_iam_role.codepipeline_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        "Action" = [
+          "iam:PassRole"
+        ],
+        "Effect"   = "Allow",
+        "Resource" = "*"
+      },
+      {
+        "Action" = [
+          "codedeploy:*"
+        ],
+        "Effect"   = "Allow",
+        "Resource" = "*"
+      },
+      {
+        "Action" = [
+          "ecs:*"
+        ],
+        "Effect"   = "Allow",
+        "Resource" = "*"
+      },
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "codestar-connections:UseConnection"
+        ],
+        "Resource" : "*"
+      },
+      {
+        Action = [
+          "codebuild:BatchGetBuilds",
+          "codebuild:StartBuild"
+        ]
+        Effect   = "Allow"
+        Resource = "*"
+      },
+      {
+        Action = [
+          "s3:GetObject",
+          "s3:GetObjectVersion",
+          "s3:PutObject"
+        ]
+        Effect   = "Allow"
+        Resource = "*"
+      }
+    ]
+  })
 }
 
 
-resource "aws_iam_role_policy_attachment" "ecs_execution_role_policy" {
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
-  role       = aws_iam_role.ecs_execution_role.name
-}
 
+
+# IAM Policies
+
+# ECS logs IAM policy
 resource "aws_iam_policy" "ecs_logs" {
   name        = "${var.infrustructure_name}${var.environment}_EcsLogs"
   description = "Allow ECS to create and write to CloudWatch Logs."
@@ -184,30 +308,125 @@ resource "aws_iam_policy" "ecs_logs" {
   })
 }
 
-resource "aws_iam_role_policy_attachment" "ecs_logs_attach" {
-  role       = aws_iam_role.ecs_execution_role.name
-  policy_arn = aws_iam_policy.ecs_logs.arn
-}
+# CodeBuild logs policy
+resource "aws_iam_policy" "codebuild_logs" {
+  name        = "${var.infrustructure_name}${var.environment}_CodeBuildLogs"
+  description = "Allow CodeBuild to create and write to CloudWatch Logs."
 
-resource "aws_iam_role" "ecs_task_role" {
-  name = "${var.infrustructure_name}${var.environment}_ecs_task_role"
-
-  assume_role_policy = jsonencode({
+  policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "ecs-tasks.amazonaws.com"
-        }
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+        Resource = "*"
       }
     ]
   })
 }
 
+# CodeBuild S3 policy
+resource "aws_iam_policy" "codebuild_s3_policy" {
+  name        = "${var.infrustructure_name}${var.environment}_codebuild_s3_policy"
+  description = "Allow CodeBuild to access S3 bucket"
+  policy      = data.aws_iam_policy_document.codebuild_s3_permissions.json
+}
+
+# CodePipeline S3 policy
+resource "aws_iam_policy" "codepipeline_s3_policy" {
+  name        = "${var.infrustructure_name}${var.environment}_CodePipelineS3Policy"
+  description = "Allow CodePipeline to access specific S3 bucket."
+  policy      = data.aws_iam_policy_document.codepipeline_s3.json
+}
 
 
+
+# IAM policy attachments
+
+# ECS task execution IAM policy attachment
+resource "aws_iam_role_policy_attachment" "ecs_execution_role_policy" {
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+  role       = aws_iam_role.ecs_execution_role.name
+}
+
+# ECS logs IAM policy attachment
+resource "aws_iam_role_policy_attachment" "ecs_logs_attach" {
+  role       = aws_iam_role.ecs_execution_role.name
+  policy_arn = aws_iam_policy.ecs_logs.arn
+}
+
+# CodeBuild S3 IAM policy attachment
+resource "aws_iam_role_policy_attachment" "codebuild_s3_policy_attach" {
+  role       = aws_iam_role.codebuild_role.name
+  policy_arn = aws_iam_policy.codebuild_s3_policy.arn
+}
+
+# CodeBuild logs IAM policy attachment
+resource "aws_iam_role_policy_attachment" "codebuild_logs_attach" {
+  role       = aws_iam_role.codebuild_role.name
+  policy_arn = aws_iam_policy.codebuild_logs.arn
+}
+
+# CodeBuild role IAM policy attachment
+resource "aws_iam_role_policy_attachment" "codebuild_role_policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser"
+  role       = aws_iam_role.codebuild_role.name
+}
+
+# CodePipeline S3 IAM policy attachment
+resource "aws_iam_role_policy_attachment" "codepipeline_s3_attach" {
+  role       = aws_iam_role.codepipeline_role.name
+  policy_arn = aws_iam_policy.codepipeline_s3_policy.arn
+}
+
+
+
+
+# Current IAM policy documents
+
+#CodeBuild S3 permissions IAM policy documents
+data "aws_iam_policy_document" "codebuild_s3_permissions" {
+  statement {
+    actions = [
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:ListBucket",
+    ]
+    resources = [
+      "${aws_s3_bucket.codepipeline_bucket.arn}/*",
+      "${aws_s3_bucket.codepipeline_bucket.arn}*",
+      "${aws_s3_bucket.codepipeline_bucket.arn}",
+    ]
+  }
+}
+
+# CodePipeline S3 permissions IAM policy documents
+data "aws_iam_policy_document" "codepipeline_s3" {
+  statement {
+    actions   = ["s3:GetObject", "s3:ListBucket", "s3:GetBucketVersioning"]
+    resources = ["${aws_s3_bucket.codepipeline_bucket.arn}/*", "${aws_s3_bucket.codepipeline_bucket.arn}*", aws_s3_bucket.codepipeline_bucket.arn]
+  }
+}
+
+
+
+# ECS service
+resource "aws_ecs_service" "this" {
+  name            = local.app_name
+  cluster         = aws_ecs_cluster.this.id
+  task_definition = aws_ecs_task_definition.this.arn
+  desired_count   = 0
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets          = module.vpc.public_subnets
+    security_groups  = [aws_security_group.ecs_tasks_sg.id]
+    assign_public_ip = false
+  }
+}
+
+
+# ECS task definition
 resource "aws_ecs_task_definition" "this" {
   family                   = local.app_name
   requires_compatibilities = ["FARGATE"]
@@ -231,24 +450,14 @@ resource "aws_ecs_task_definition" "this" {
   }])
 }
 
-# ECS service
-
-resource "aws_ecs_service" "this" {
-  name            = local.app_name
-  cluster         = aws_ecs_cluster.this.id
-  task_definition = aws_ecs_task_definition.this.arn
-  desired_count   = 0
-  launch_type     = "FARGATE"
-
-  network_configuration {
-    subnets          = module.vpc.public_subnets
-    security_groups  = [aws_security_group.ecs_tasks_sg.id]
-    assign_public_ip = false
-  }
+# CodeStar Connection
+resource "aws_codestarconnections_connection" "github" {
+  provider_type = "GitHub"
+  name          = "github-connection"
 }
 
-# AWS CodePipeline and CodeBuild
 
+# CodeBuild
 resource "aws_codebuild_project" "this" {
   name          = local.app_name
   build_timeout = "5"
@@ -272,12 +481,8 @@ resource "aws_codebuild_project" "this" {
   }
 }
 
-resource "aws_codestarconnections_connection" "github" {
-  provider_type = "GitHub"
-  name          = "github-connection"
-}
 
-
+# CodePipeline
 resource "aws_codepipeline" "this" {
   name     = local.app_name
   role_arn = aws_iam_role.codepipeline_role.arn
@@ -350,7 +555,7 @@ resource "aws_codepipeline" "this" {
             "name" : "AWS_SECRET_KEY",
             "value" : "${var.aws_secret_key}",
             "type" : "PLAINTEXT"
-          },
+          }
         ])
       }
     }
@@ -376,195 +581,32 @@ resource "aws_codepipeline" "this" {
   }
 }
 
-# IAM roles, policies, and S3 bucket
 
-resource "aws_iam_role" "codebuild_role" {
-  name = "${var.infrustructure_name}${var.environment}_codebuild_role"
+# CloudWatch groups
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "codebuild.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_iam_policy" "codebuild_logs" {
-  name        = "${var.infrustructure_name}${var.environment}_CodeBuildLogs"
-  description = "Allow CodeBuild to create and write to CloudWatch Logs."
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
-        Resource = "*"
-      }
-    ]
-  })
-}
-
-
-
+# ECS service Cloudwatch group
 resource "aws_cloudwatch_log_group" "ecs_service_logs" {
   name = "/ecs/${var.infrustructure_name}${var.environment}_ecs_aws_cloudwatch_log_group"
 }
 
-data "aws_iam_policy_document" "codebuild_s3_permissions" {
-  statement {
-    actions = [
-      "s3:GetObject",
-      "s3:PutObject",
-      "s3:ListBucket",
-    ]
-    resources = [
-      "${aws_s3_bucket.codepipeline_bucket.arn}/*",
-      "${aws_s3_bucket.codepipeline_bucket.arn}*",
-      "${aws_s3_bucket.codepipeline_bucket.arn}",
-    ]
-  }
-}
 
-resource "aws_iam_policy" "codebuild_s3_policy" {
-  name        = "${var.infrustructure_name}${var.environment}_codebuild_s3_policy"
-  description = "Allow CodeBuild to access S3 bucket"
-  policy      = data.aws_iam_policy_document.codebuild_s3_permissions.json
-}
+# S3 Buckets
 
-resource "aws_iam_role_policy_attachment" "codebuild_s3_policy_attach" {
-  role       = aws_iam_role.codebuild_role.name
-  policy_arn = aws_iam_policy.codebuild_s3_policy.arn
-}
-
-
-resource "aws_iam_role_policy_attachment" "codebuild_logs_attach" {
-  role       = aws_iam_role.codebuild_role.name
-  policy_arn = aws_iam_policy.codebuild_logs.arn
-}
-
-
-resource "aws_iam_role_policy_attachment" "codebuild_role_policy" {
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser"
-  role       = aws_iam_role.codebuild_role.name
-}
-
-data "aws_iam_policy_document" "codepipeline_s3" {
-  statement {
-    actions   = ["s3:GetObject", "s3:ListBucket", "s3:GetBucketVersioning"]
-    resources = ["${aws_s3_bucket.codepipeline_bucket.arn}/*", "${aws_s3_bucket.codepipeline_bucket.arn}*", aws_s3_bucket.codepipeline_bucket.arn]
-  }
-}
-
-
-resource "aws_iam_policy" "codepipeline_s3_policy" {
-  name        = "${var.infrustructure_name}${var.environment}_CodePipelineS3Policy"
-  description = "Allow CodePipeline to access specific S3 bucket."
-  policy      = data.aws_iam_policy_document.codepipeline_s3.json
-}
-
-resource "aws_iam_role_policy_attachment" "codepipeline_s3_attach" {
-  role       = aws_iam_role.codepipeline_role.name
-  policy_arn = aws_iam_policy.codepipeline_s3_policy.arn
-}
-
-
-resource "aws_iam_role" "codepipeline_role" {
-  name = "${var.infrustructure_name}${var.environment}_codepipeline_role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "codepipeline.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy" "codepipeline_policy" {
-  name = "${var.infrustructure_name}${var.environment}_codepipeline_policy"
-  role = aws_iam_role.codepipeline_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        "Action" = [
-          "iam:PassRole"
-        ],
-        "Effect"   = "Allow",
-        "Resource" = "*"
-      },
-      {
-        "Action" = [
-          "codedeploy:*"
-        ],
-        "Effect"   = "Allow",
-        "Resource" = "*"
-      },
-      {
-        "Action" = [
-          "ecs:*"
-        ],
-        "Effect"   = "Allow",
-        "Resource" = "*"
-      },
-      {
-        "Effect" : "Allow",
-        "Action" : [
-          "codestar-connections:UseConnection"
-        ],
-        "Resource" : "*"
-      },
-      {
-        Action = [
-          "codebuild:BatchGetBuilds",
-          "codebuild:StartBuild"
-        ]
-        Effect   = "Allow"
-        Resource = "*"
-      },
-      {
-        Action = [
-          "s3:GetObject",
-          "s3:GetObjectVersion",
-          "s3:PutObject"
-        ]
-        Effect   = "Allow"
-        Resource = "*"
-      }
-    ]
-  })
-}
-
-resource "random_id" "id" {
-  byte_length = 4
-}
-
+# CodePipeline bucket
 resource "aws_s3_bucket" "codepipeline_bucket" {
   bucket        = "codepipeline-${var.infrustructure_name}${var.environment}-${random_id.id.hex}"
   force_destroy = true
 }
 
-
 # Amazon EventBridge
 
+# Defining a schedule
 resource "aws_cloudwatch_event_rule" "daily_schedule" {
   name                = "${var.infrustructure_name}${var.environment}_daily-schedule"
   schedule_expression = "cron(0 0 * * ? *)"
 }
 
+# Defining Schedule target
 resource "aws_cloudwatch_event_target" "ecs_target" {
   rule      = aws_cloudwatch_event_rule.daily_schedule.name
   target_id = "ecs_target"
@@ -601,11 +643,9 @@ resource "aws_cloudwatch_event_target" "ecs_target" {
   }
 }
 
-
+# Defining CloudWatch permissions
 resource "aws_cloudwatch_event_permission" "ecs_event_permission" {
   action       = "events:PutEvents"
   principal    = "*"
   statement_id = "ECS_Events"
 }
-
-
