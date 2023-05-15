@@ -15,12 +15,12 @@ phases:
   build:
     commands:
       - echo Building the Docker image...
-      - docker build -t $INFRUSTRUCTURE_NAME .
-      - docker tag $INFRUSTRUCTURE_NAME $REPOSITORY_URI:latest
+      - docker build -t $INFRASTRUCTURE_NAME .
+      - docker tag $INFRASTRUCTURE_NAME $REPOSITORY_URI:latest
   post_build:
     commands:
       - echo Pushing the Docker image...
       - docker push $REPOSITORY_URI:latest
-      - printf '[{"name":"%s","imageUri":"%s"}]' $INFRUSTRUCTURE_NAME $REPOSITORY_URI:latest > imagedefinitions.json
+      - printf '[{"name":"%s","imageUri":"%s"}]' $INFRASTRUCTURE_NAME $REPOSITORY_URI:latest > imagedefinitions.json
 artifacts:
   files: imagedefinitions.json

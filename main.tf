@@ -1,9 +1,12 @@
 terraform {
-  cloud {
+  required_version = ">= 0.12"
+
+  backend "remote" {
+    hostname     = "app.terraform.io"
     organization = "erfanpsss_org"
 
     workspaces {
-      name = "infrustructure-test"
+      prefix = "infrastructure-test-"
     }
   }
 }
@@ -24,7 +27,7 @@ resource "random_id" "id" {
 
 # Defining variables
 locals {
-  app_name = "${var.infrustructure_name}${var.environment}"
+  app_name = "${var.infrastructure_name}${var.environment}"
 }
 
 data "aws_caller_identity" "current" {}
@@ -49,7 +52,7 @@ module "vpc" {
 
 # Scurity groups
 resource "aws_security_group" "allow_all" {
-  name        = "${var.infrustructure_name}${var.environment}_allow_all"
+  name        = "${var.infrastructure_name}${var.environment}_allow_all"
   description = "Allow all traffic"
   vpc_id      = module.vpc.vpc_id
 
@@ -62,7 +65,7 @@ resource "aws_security_group" "allow_all" {
 }
 
 resource "aws_security_group" "ecs_tasks_sg" {
-  name        = "${var.infrustructure_name}${var.environment}_ecs_tasks_security_group"
+  name        = "${var.infrastructure_name}${var.environment}_ecs_tasks_security_group"
   description = "Security group for ECS tasks"
   vpc_id      = module.vpc.vpc_id
   egress {
@@ -88,7 +91,7 @@ resource "aws_ecs_cluster" "this" {
 
 # ECS event IAM role
 resource "aws_iam_role" "ecs_events" {
-  name = "${var.infrustructure_name}${var.environment}_ecs_events_role"
+  name = "${var.infrastructure_name}${var.environment}_ecs_events_role"
 
   assume_role_policy = <<EOF
 {
@@ -109,7 +112,7 @@ EOF
 
 # ECS task IAM role
 resource "aws_iam_role" "ecs_task_role" {
-  name = "${var.infrustructure_name}${var.environment}_ecs_task_role"
+  name = "${var.infrastructure_name}${var.environment}_ecs_task_role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -127,7 +130,7 @@ resource "aws_iam_role" "ecs_task_role" {
 
 # ECS task execution IAM role
 resource "aws_iam_role" "ecs_execution_role" {
-  name = "${var.infrustructure_name}${var.environment}_ecs_execution_role"
+  name = "${var.infrastructure_name}${var.environment}_ecs_execution_role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -145,7 +148,7 @@ resource "aws_iam_role" "ecs_execution_role" {
 
 # CodeBuild IAM role
 resource "aws_iam_role" "codebuild_role" {
-  name = "${var.infrustructure_name}${var.environment}_codebuild_role"
+  name = "${var.infrastructure_name}${var.environment}_codebuild_role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -163,7 +166,7 @@ resource "aws_iam_role" "codebuild_role" {
 
 # CodePipeline IAM role
 resource "aws_iam_role" "codepipeline_role" {
-  name = "${var.infrustructure_name}${var.environment}_codepipeline_role"
+  name = "${var.infrastructure_name}${var.environment}_codepipeline_role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -185,7 +188,7 @@ resource "aws_iam_role" "codepipeline_role" {
 
 # ECS task execution IAM Role policy
 resource "aws_iam_role_policy" "ecs_task_execution_role_policy" {
-  name = "${var.infrustructure_name}${var.environment}_ecs_task_execution_role_policy"
+  name = "${var.infrastructure_name}${var.environment}_ecs_task_execution_role_policy"
   role = aws_iam_role.ecs_execution_role.id
 
   policy = jsonencode({
@@ -207,7 +210,7 @@ resource "aws_iam_role_policy" "ecs_task_execution_role_policy" {
 
 # ECS event IAM Role policy
 resource "aws_iam_role_policy" "ecs_events" {
-  name = "${var.infrustructure_name}${var.environment}_ecs_events_policy"
+  name = "${var.infrastructure_name}${var.environment}_ecs_events_policy"
   role = aws_iam_role.ecs_events.id
 
   policy = <<EOF
@@ -231,7 +234,7 @@ EOF
 
 # CodePipeline IAM Role policy
 resource "aws_iam_role_policy" "codepipeline_policy" {
-  name = "${var.infrustructure_name}${var.environment}_codepipeline_policy"
+  name = "${var.infrastructure_name}${var.environment}_codepipeline_policy"
   role = aws_iam_role.codepipeline_role.id
 
   policy = jsonencode({
@@ -293,7 +296,7 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
 
 # ECS logs IAM policy
 resource "aws_iam_policy" "ecs_logs" {
-  name        = "${var.infrustructure_name}${var.environment}_EcsLogs"
+  name        = "${var.infrastructure_name}${var.environment}_EcsLogs"
   description = "Allow ECS to create and write to CloudWatch Logs."
 
   policy = jsonencode({
@@ -310,7 +313,7 @@ resource "aws_iam_policy" "ecs_logs" {
 
 # CodeBuild logs policy
 resource "aws_iam_policy" "codebuild_logs" {
-  name        = "${var.infrustructure_name}${var.environment}_CodeBuildLogs"
+  name        = "${var.infrastructure_name}${var.environment}_CodeBuildLogs"
   description = "Allow CodeBuild to create and write to CloudWatch Logs."
 
   policy = jsonencode({
@@ -327,14 +330,14 @@ resource "aws_iam_policy" "codebuild_logs" {
 
 # CodeBuild S3 policy
 resource "aws_iam_policy" "codebuild_s3_policy" {
-  name        = "${var.infrustructure_name}${var.environment}_codebuild_s3_policy"
+  name        = "${var.infrastructure_name}${var.environment}_codebuild_s3_policy"
   description = "Allow CodeBuild to access S3 bucket"
   policy      = data.aws_iam_policy_document.codebuild_s3_permissions.json
 }
 
 # CodePipeline S3 policy
 resource "aws_iam_policy" "codepipeline_s3_policy" {
-  name        = "${var.infrustructure_name}${var.environment}_CodePipelineS3Policy"
+  name        = "${var.infrastructure_name}${var.environment}_CodePipelineS3Policy"
   description = "Allow CodePipeline to access specific S3 bucket."
   policy      = data.aws_iam_policy_document.codepipeline_s3.json
 }
@@ -527,8 +530,8 @@ resource "aws_codepipeline" "this" {
         ProjectName = aws_codebuild_project.this.name
         EnvironmentVariables = jsonencode([
           {
-            "name" : "INFRUSTRUCTURE_NAME",
-            "value" : "${var.infrustructure_name}${var.environment}",
+            "name" : "INFRASTRUCTURE_NAME",
+            "value" : "${var.infrastructure_name}${var.environment}",
             "type" : "PLAINTEXT"
           },
           {
@@ -586,7 +589,7 @@ resource "aws_codepipeline" "this" {
 
 # ECS service Cloudwatch group
 resource "aws_cloudwatch_log_group" "ecs_service_logs" {
-  name = "/ecs/${var.infrustructure_name}${var.environment}_ecs_aws_cloudwatch_log_group"
+  name = "/ecs/${var.infrastructure_name}${var.environment}_ecs_aws_cloudwatch_log_group"
 }
 
 
@@ -594,7 +597,7 @@ resource "aws_cloudwatch_log_group" "ecs_service_logs" {
 
 # CodePipeline bucket
 resource "aws_s3_bucket" "codepipeline_bucket" {
-  bucket        = "codepipeline-${var.infrustructure_name}${var.environment}-${random_id.id.hex}"
+  bucket        = "codepipeline-${var.infrastructure_name}${var.environment}-${random_id.id.hex}"
   force_destroy = true
 }
 
@@ -602,7 +605,7 @@ resource "aws_s3_bucket" "codepipeline_bucket" {
 
 # Defining a schedule
 resource "aws_cloudwatch_event_rule" "daily_schedule" {
-  name                = "${var.infrustructure_name}${var.environment}_daily-schedule"
+  name                = "${var.infrastructure_name}${var.environment}_daily-schedule"
   schedule_expression = "cron(0 0 * * ? *)"
 }
 
@@ -634,7 +637,7 @@ resource "aws_cloudwatch_event_target" "ecs_target" {
     {
       "containerOverrides": [
         {
-          "name": "${var.infrustructure_name}${var.environment}",
+          "name": "${var.infrastructure_name}${var.environment}",
           "command": []
         }
       ]

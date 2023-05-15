@@ -1,4 +1,4 @@
-infrustructure_name = "name-of-infrustructure"
+infrastructure_name = "name-of-infrastructure"
 environment = "dev"
 aws_region         = "us-west-2"
 github_username    = "your_github_username"
