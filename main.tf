@@ -605,8 +605,9 @@ resource "aws_s3_bucket" "codepipeline_bucket" {
 
 # Defining a schedule
 resource "aws_cloudwatch_event_rule" "daily_schedule" {
-  name                = "${var.infrastructure_name}${var.environment}_daily-schedule"
+  name = "${var.infrastructure_name}${var.environment}_daily-schedule"
   schedule_expression = "cron(0 0 * * ? *)"
+  #schedule_expression = "rate(2 minutes)"
 }
 
 # Defining Schedule target
