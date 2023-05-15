@@ -1,10 +1,14 @@
-infrastructure_name = "name-of-infrastructure"
-environment = "dev"
-aws_region         = "us-west-2"
-github_username    = "your_github_username"
-github_repository        = "your_github_repository"
-github_token  = "your_github_token"
-github_branch ="main
-aws_account_id     = "your_aws_account_id"
-aws_access_key     = "your_aws_access_key"
-aws_secret_key     = "your_aws_secret_key"
+infrastructure_name = "infrastructure-test"
+environment         = "dev"
+aws_region          = "us-east-2"
+github_username     = "username"
+github_repository   = "username/repo"
+github_token        = "xxxxx"
+github_branch       = "main"
+aws_account_id      = "xx"
+aws_access_key      = "xxxx"
+aws_secret_key      = "xxxxxxxxxxx"
+
+env_vars = {
+  "TEST_ENV"  = "test1",
+}

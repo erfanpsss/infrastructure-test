@@ -3,9 +3,5 @@ import os
 
 load_dotenv()
 
-# Loggings
-LOGGING_EXCUDED_LOG_LEVEL_NAMES = [
-    item.strip().upper() for item in os.environ.get(
-        "LOGGING_EXCUDED_LOG_LEVEL_NAMES", ""
-    ).split(",")
-]
+TEST_ENV = os.environ.get("TEST_ENV")
+

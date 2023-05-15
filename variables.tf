@@ -48,3 +48,9 @@ variable "aws_secret_key" {
   description = "The AWS secret_key"
   type        = string
 }
+
+variable "env_vars" {
+  description = "Environment variables"
+  type        = map(string)
+  default     = {}
+}

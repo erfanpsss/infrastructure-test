@@ -528,38 +528,28 @@ resource "aws_codepipeline" "this" {
 
       configuration = {
         ProjectName = aws_codebuild_project.this.name
-        EnvironmentVariables = jsonencode([
-          {
-            "name" : "INFRASTRUCTURE_NAME",
-            "value" : "${var.infrastructure_name}${var.environment}",
-            "type" : "PLAINTEXT"
-          },
-          {
-            "name" : "AWS_DEFAULT_REGION",
-            "value" : "${var.aws_region}",
-            "type" : "PLAINTEXT"
-          },
-          {
-            "name" : "REPOSITORY_URI",
-            "value" : "${aws_ecr_repository.this.repository_url}",
-            "type" : "PLAINTEXT"
-          },
-          {
-            "name" : "AWS_ACCOUNT_ID",
-            "value" : "${var.aws_account_id}",
-            "type" : "PLAINTEXT"
-          },
-          {
-            "name" : "AWS_ACCESS_KEY",
-            "value" : "${var.aws_access_key}",
-            "type" : "PLAINTEXT"
-          },
-          {
-            "name" : "AWS_SECRET_KEY",
-            "value" : "${var.aws_secret_key}",
-            "type" : "PLAINTEXT"
-          }
-        ])
+        EnvironmentVariables = jsonencode(
+          concat([
+            for name, value in {
+              INFRASTRUCTURE_NAME = "${var.infrastructure_name}${var.environment}"
+              AWS_DEFAULT_REGION  = var.aws_region
+              REPOSITORY_URI      = aws_ecr_repository.this.repository_url
+              AWS_ACCOUNT_ID      = var.aws_account_id
+              AWS_ACCESS_KEY      = var.aws_access_key
+              AWS_SECRET_KEY      = var.aws_secret_key
+              } : {
+              name  = name
+              value = value
+              type  = "PLAINTEXT"
+            }
+            ], [
+            for name, value in var.env_vars : {
+              name  = name
+              value = value
+              type  = "PLAINTEXT"
+            }
+          ])
+        )
       }
     }
   }
@@ -605,7 +595,7 @@ resource "aws_s3_bucket" "codepipeline_bucket" {
 
 # Defining a schedule
 resource "aws_cloudwatch_event_rule" "daily_schedule" {
-  name = "${var.infrastructure_name}${var.environment}_daily-schedule"
+  name                = "${var.infrastructure_name}${var.environment}_daily-schedule"
   schedule_expression = "cron(0 0 * * ? *)"
   #schedule_expression = "rate(2 minutes)"
 }
